@@ -1,14 +1,15 @@
 const db = require('../config/dbConfig');
-const { InfluxDB } = require('@influxdata/influxdb-client');
-const cron = require('node-cron');
+const Influx = require('influx');
 
-// InfluxDB Configuration
 const influxConfig = {
-  url: 'http://localhost:8086', // Update with your InfluxDB URL
-  token: 'your-influxdb-token',
-  org: 'your-org',
-  bucket: 'your-bucket',
+  database: 'your-database-name',  // Replace with your InfluxDB database
 };
+
+const influx = new Influx.InfluxDB({
+  host: 'localhost',
+  port: 8086,
+  database: influxConfig.database,
+});
 
 // Fetch all scans from MySQL
 const getAllScans = async (req, res) => {
@@ -20,40 +21,25 @@ const getAllScans = async (req, res) => {
   }
 };
 
-// Fetch data from InfluxDB
+// Fetch data from InfluxDB v1
 const fetchInfluxData = async () => {
-  const influxClient = new InfluxDB({ url: influxConfig.url, token: influxConfig.token });
-  const queryApi = influxClient.getQueryApi(influxConfig.org);
+  try {
+    const results = await influx.query(`
+      SELECT * FROM scans
+      WHERE time > now() - 1d
+    `);
 
-  const query = `
-    from(bucket: "${influxConfig.bucket}")
-    |> range(start: -1d, stop: now())
-    |> filter(fn: (r) => r["_measurement"] == "scans")
-    |> keep(columns: ["_time", "device_id", "scan_result"])
-  `;
+    const rows = results.map((row) => ({
+      scan_date: new Date(row.time).toISOString().slice(0, 19).replace('T', ' '),
+      device_id: row.device_id,
+      scanned_result: row.scan_result,
+    }));
 
-  const rows = [];
-  await new Promise((resolve, reject) => {
-    queryApi.queryRows(query, {
-      next(row, tableMeta) {
-        const data = tableMeta.toObject(row);
-        const scan_date = new Date(data._time).toISOString().slice(0, 19).replace('T', ' ');
-        rows.push({
-          scan_date,
-          device_id: data.device_id,
-          scanned_result: data.scan_result,
-        });
-      },
-      error(error) {
-        reject(error);
-      },
-      complete() {
-        resolve();
-      },
-    });
-  });
-
-  return rows;
+    return rows;
+  } catch (error) {
+    console.error('Error querying InfluxDB:', error);
+    throw error;
+  }
 };
 
 // Store data in MySQL
@@ -77,7 +63,7 @@ const storeInMySQL = async (data) => {
   }
 };
 
-// Fetch and store scans from InfluxDB
+// Fetch and store scans
 const fetchAndStoreScans = async (req, res) => {
   try {
     const data = await fetchInfluxData();
@@ -88,12 +74,12 @@ const fetchAndStoreScans = async (req, res) => {
       res.status(200).json({ message: 'No new scans found in the last 24 hours.' });
     }
   } catch (error) {
-    console.error('Error in fetchAndStoreScans:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
 // Scheduled Task
+const cron = require('node-cron');
 cron.schedule('0 0 * * *', async () => {
   console.log('Scheduled task: Fetching and storing scans...');
   try {
@@ -107,8 +93,6 @@ cron.schedule('0 0 * * *', async () => {
     console.error('Error in scheduled task:', error);
   }
 });
-
-console.log('Cron job scheduled: Fetching scans daily at midnight.');
 
 module.exports = {
   getAllScans,

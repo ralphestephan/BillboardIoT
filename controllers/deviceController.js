@@ -3,59 +3,64 @@ const mqtt = require('mqtt');
 
 // MQTT Configuration
 const mqttConfig = {
-  host: 'mqtt://localhost', // Replace with your MQTT broker address
-  topic: 'devices/coordinates', // Replace with your topic
+  host: 'mqtt://localhost',
+  pot: 1883,
+  topic: 'devices/register',
 };
 
-const client = mqtt.connect(mqttConfig.host);
-
-// Subscribe to the topic
-client.on('connect', () => {
-  console.log(`Connected to MQTT broker at ${mqttConfig.host}`);
-  client.subscribe(mqttConfig.topic, (err) => {
-    if (err) {
-      console.error(`Failed to subscribe to topic ${mqttConfig.topic}:`, err);
-    } else {
-      console.log(`Subscribed to topic ${mqttConfig.topic}`);
-    }
+const client = mqtt.connect({
+    host: mqttConfig.host,
+    port: mqttConfig.port,
   });
-});
-
+  
+  client.on('connect', () => {
+    console.log(`Connected to MQTT broker at ${mqttConfig.host}:${mqttConfig.port}`);
+    client.subscribe(mqttConfig.topic, (err) => {
+      if (err) {
+        console.error(`Failed to subscribe to topic ${mqttConfig.topic}:`, err);
+      } else {
+        console.log(`Subscribed to topic ${mqttConfig.topic}`);
+      }
+    });
+  });
+  
 // Handle incoming MQTT messages
 client.on('message', async (topic, message) => {
   if (topic === mqttConfig.topic) {
     try {
-      const payload = JSON.parse(message.toString()); // Parse the incoming JSON
+      const payload = JSON.parse(message.toString());
       const { device_id, coordinates } = payload;
 
-      if (!device_id || !coordinates) {
+      if (!device_id || !coordinates || typeof coordinates.lat !== 'number' || typeof coordinates.lng !== 'number') {
         console.error('Invalid payload received:', payload);
         return;
       }
 
-      // Check if device exists in the database
-      const [existing] = await db.query('SELECT * FROM Devices WHERE device_id = ?', [device_id]);
+      const query = `
+        INSERT INTO Devices (device_id, coordinates)
+        VALUES (?, ST_GeomFromText(?))
+        ON DUPLICATE KEY UPDATE coordinates = ST_GeomFromText(?)
+      `;
 
-      if (existing.length > 0) {
-        // Update existing device's coordinates
-        await db.query(
-          'UPDATE Devices SET coordinates = ST_GeomFromText(?) WHERE device_id = ?',
-          [`POINT(${coordinates.lat} ${coordinates.lng})`, device_id]
-        );
-        console.log(`Updated coordinates for device_id: ${device_id}`);
-      } else {
-        // Insert new device into the database
-        await db.query(
-          'INSERT INTO Devices (device_id, coordinates) VALUES (?, ST_GeomFromText(?))',
-          [device_id, `POINT(${coordinates.lat} ${coordinates.lng})`]
-        );
-        console.log(`Added new device with device_id: ${device_id}`);
-      }
+      const point = `POINT(${coordinates.lat} ${coordinates.lng})`;
+      await db.query(query, [device_id, point, point]);
+
+      console.log(`Device ${device_id} processed with coordinates ${coordinates.lat}, ${coordinates.lng}`);
     } catch (error) {
       console.error('Error processing MQTT message:', error);
     }
   }
 });
+
+// Fetch all devices
+const getAllDevices = async (req, res) => {
+  try {
+    const [results] = await db.query('SELECT * FROM Devices');
+    res.json(results);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
 // Fetch a specific device by device_id
 const getDeviceById = async (req, res) => {
@@ -83,11 +88,8 @@ const updateDevice = async (req, res) => {
         coordinates = COALESCE(ST_GeomFromText(?), coordinates)
       WHERE device_id = ?
     `;
-    const [result] = await db.query(query, [
-      billboard_id || null,
-      coordinates ? `POINT(${coordinates.lat} ${coordinates.lng})` : null,
-      device_id,
-    ]);
+    const point = coordinates ? `POINT(${coordinates.lat} ${coordinates.lng})` : null;
+    const [result] = await db.query(query, [billboard_id || null, point, device_id]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Device not found' });
