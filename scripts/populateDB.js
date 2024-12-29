@@ -17,33 +17,39 @@ const dbConfig = {
 
 // Insert data into BrandData table
 async function populateBrandData(connection) {
-  console.log('Populating BrandData...');
-  const query = `
-    INSERT INTO BrandData (
-      qr_code_id, campaign_name, brand_name, subbrand, category, product,
-      media_agency, producer, distributor, ad_language, url
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  for (const row of brandsSheet) {
-    const values = [
-      row['QR CODE'],
-      row['Ad'],
-      row['Brand'],
-      row['Subbrand'],
-      row['Category'],
-      row['Product'],
-      row['Media Agency'],
-      row['Producer'],
-      row['Distributor'],
-      row['Language'],
-      row['URL'],
-    ];
-    await connection.execute(query, values);
+    console.log('Populating BrandData...');
+    const query = `
+      INSERT INTO BrandData (
+        qr_code_id, campaign_name, brand_name, subbrand, category, product,
+        media_agency, producer, distributor, ad_language, url
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+  
+    for (const row of brandsSheet) {
+      const values = [
+        row['QR CODE'] || null,
+        row['Ad'] || null,
+        row['Brand'] || null,
+        row['Subbrand'] || null,
+        row['Category'] || null,
+        row['Product'] || null,
+        row['Media Agency'] || null,
+        row['Producer'] || null,
+        row['Distributor'] || null,
+        row['Language'] || null,
+        row['URL'] || null,
+      ];
+  
+      try {
+        await connection.execute(query, values);
+      } catch (error) {
+        console.error(`Error inserting brand data: ${row['QR CODE'] || 'unknown'}`, error);
+      }
+    }
+    console.log('BrandData populated successfully.');
   }
-  console.log('BrandData populated successfully.');
-}
+  
 
 async function populateBillboardData(connection) {
     console.log('Populating Billboards...');
