@@ -4,8 +4,10 @@
 #include <ArduinoJson.h>
 
 // SIM7080G Pins
-#define RX_PIN 3 // ESP32 RX connected to SIM7080 TX
-#define TX_PIN 1 // ESP32 TX connected to SIM7080 RX
+#define RX_PIN 3  // ESP32 RX connected to SIM7080 TX
+#define TX_PIN 1  // ESP32 TX connected to SIM7080 RX
+#define SIM_PWR_PIN 14 // SIM7080G power key
+#define LED_INDICATOR_PIN 33 // LED indicator pin
 #define SERIAL_BAUD 115200
 
 // APN for LTE
@@ -41,6 +43,18 @@ void setup() {
   // Initialize Serial
   Serial.begin(SERIAL_BAUD);
   simSerial.begin(115200, SERIAL_8N1, RX_PIN, TX_PIN);
+
+  // Setup SIMPWR pin and LED indicator pin
+  pinMode(SIM_PWR_PIN, OUTPUT);
+  pinMode(LED_INDICATOR_PIN, OUTPUT);
+
+  // Power-on pulse for SIM_PWR_PIN
+  digitalWrite(SIM_PWR_PIN, HIGH);
+  delay(2000); // 2 seconds
+  digitalWrite(SIM_PWR_PIN, LOW);
+
+  // Turn on LED indicator
+  digitalWrite(LED_INDICATOR_PIN, HIGH);
 
   // Initialize QR Code Reader
   reader.setup();

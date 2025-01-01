@@ -1,10 +1,7 @@
 const db = require('../config/dbConfig');
-const mqtt = require('mqtt');
+const { mqttConfig, client } = require('../config/mqttConfig');
 
-const db = require('../config/dbConfig');
-const { mqttConfig, client } = require('../config/mqttConfig'); // Import MQTT client and config
-
-// Handle incoming MQTT messages
+// MQTT: Listen for incoming messages
 client.on('message', async (topic, message) => {
   if (topic === mqttConfig.topic) {
     try {
@@ -12,6 +9,7 @@ client.on('message', async (topic, message) => {
       const payload = JSON.parse(message.toString());
       const { device_id, coordinates } = payload;
 
+      // Validate the payload
       if (!device_id || !coordinates || typeof coordinates.lat !== 'number' || typeof coordinates.lng !== 'number') {
         console.error('Invalid payload received:', payload);
         return;
@@ -29,9 +27,7 @@ client.on('message', async (topic, message) => {
       console.log('Executing query:', query);
       console.log('Parameters:', [device_id, point, point]);
 
-      // Perform the database query
       await db.query(query, [device_id, point, point]);
-
       console.log(`Device ${device_id} processed with coordinates (${coordinates.lat}, ${coordinates.lng})`);
     } catch (error) {
       console.error('Error processing MQTT message:', error.message);
@@ -104,8 +100,8 @@ const deleteDevice = async (req, res) => {
 };
 
 module.exports = {
-    getAllDevices,
-    getDeviceById,
-    updateDevice,
-    deleteDevice,
-  };
+  getAllDevices,
+  getDeviceById,
+  updateDevice,
+  deleteDevice,
+};

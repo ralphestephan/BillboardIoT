@@ -1,17 +1,6 @@
 const db = require('../config/dbConfig');
-const Influx = require('influx');
+const influx = require('../config/influx');
 const cron = require('node-cron');
-
-// InfluxDB Configuration
-const influxConfig = {
-  database: 'QRtesting',
-};
-
-const influx = new Influx.InfluxDB({
-  host: 'localhost',
-  port: 8086,
-  database: influxConfig.database,
-});
 
 // Fetch all scans from MySQL
 const getAllScans = async (req, res) => {
@@ -24,7 +13,7 @@ const getAllScans = async (req, res) => {
 };
 
 // Fetch data from InfluxDB for a dynamic time range
-const fetchInfluxData = async (timeRange = '-1m') => {
+const fetchInfluxData = async (timeRange) => {
   try {
     console.log(`Fetching scans from InfluxDB within the past ${timeRange}...`);
 
@@ -73,26 +62,12 @@ const storeInMySQL = async (data) => {
   }
 };
 
-// Fetch and store scans (manual trigger)
-const fetchAndStoreScans = async (req, res) => {
-  try {
-    const data = await fetchInfluxData('-1m'); // Fetch data from the last 1 minute
-    if (data.length > 0) {
-      await storeInMySQL(data);
-      res.status(201).json({ message: `${data.length} new scans added successfully.` });
-    } else {
-      res.status(200).json({ message: 'No new scans found.' });
-    }
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
 
 // Scheduled Task: Fetch and store scans every minute
-cron.schedule('* * * * *', async () => { // Run every minute
+cron.schedule('*/1 * * * *', async () => { // Run every minute
   console.log('Scheduled task: Fetching and storing scans...');
   try {
-    const data = await fetchInfluxData('-1m'); // Fetch data from the last 1 minute
+    const data = await fetchInfluxData('-60s'); // Fetch data from the last 1 minute
     if (data.length > 0) {
       await storeInMySQL(data);
     } else {
@@ -107,5 +82,4 @@ console.log('Cron job scheduled: Fetching scans every minute.');
 
 module.exports = {
   getAllScans,
-  fetchAndStoreScans,
 };

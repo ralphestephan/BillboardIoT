@@ -1,0 +1,29 @@
+const mqtt = require('mqtt');
+
+const mqttConfig = {
+  host: 'localhost',
+  port: 1883,
+  topic: 'devices/register',
+};
+
+// Initialize the MQTT client
+const client = mqtt.connect(`mqtt://${mqttConfig.host}:${mqttConfig.port}`);
+
+// Handle connection and subscription
+client.on('connect', () => {
+  console.log(`Connected to MQTT broker at ${mqttConfig.host}:${mqttConfig.port}`);
+  client.subscribe(mqttConfig.topic, (err) => {
+    if (err) {
+      console.error(`Failed to subscribe to topic ${mqttConfig.topic}:`, err.message);
+    } else {
+      console.log(`Subscribed to topic: ${mqttConfig.topic}`);
+    }
+  });
+});
+
+// Handle errors
+client.on('error', (err) => {
+  console.error('MQTT connection error:', err.message);
+});
+
+module.exports = { mqttConfig, client };
