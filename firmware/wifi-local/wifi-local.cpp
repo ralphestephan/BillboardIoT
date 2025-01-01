@@ -4,6 +4,8 @@
 #include <ArduinoJson.h>
 #include <ESP32QRCodeReader.h>
 
+#define LED_INDICATOR_PIN 33  // Pin for LED indicator
+
 // WiFi credentials
 const char* ssid = "Estephan";
 const char* password = "Beirut@2022";
@@ -151,6 +153,10 @@ void sendQRResultToMQTT(String qrCode) {
 // Setup function
 void setup() {
   Serial.begin(115200);
+
+  pinMode(LED_INDICATOR_PIN, OUTPUT);
+  digitalWrite(LED_INDICATOR_PIN, HIGH); // Turn on LED to indicate power
+
   setupWiFi();
   client.setServer(mqtt_server, mqtt_port);
   connectToMQTT();
