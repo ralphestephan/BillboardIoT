@@ -1,3 +1,4 @@
+#define TINY_GSM_MODEM_SIM7080
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
 #include <ESP32QRCodeReader.h>
@@ -22,7 +23,6 @@ const char *mqtt_device_topic = "devices/register";
 const char *mqtt_qr_topic = "qr_codes/results";
 
 // SIM7080G Modem and MQTT client
-#define TINY_GSM_MODEM_SIM7080
 HardwareSerial simSerial(1); // UART1 for SIM7080G
 TinyGsm modem(simSerial);
 TinyGsmClient gsmClient(modem);
