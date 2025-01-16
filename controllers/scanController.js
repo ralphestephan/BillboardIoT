@@ -1,5 +1,5 @@
 const db = require('../config/dbConfig');
-const influx = require('../config/influx');
+const influx = require('../config/influxConfig');
 const cron = require('node-cron');
 
 // Fetch all scans from MySQL
